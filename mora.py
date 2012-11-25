@@ -1,0 +1,271 @@
+#!/usr/bin/env python
+# -*- coding: euc-jp -*-
+import sys
+
+# zen2han(s): Converts every zenkaku letters to ascii ones.
+FULLWIDTH = (
+    u"¡¡¡ª¡É¡ô¡ð¡ó¡õ¡Ç¡Ê¡Ë¡ö¡Ü¡¤\uff0d\u2212¡¥¡¿£°£±£²£³£´£µ£¶£·£¸£¹¡§¡¨¡ã¡á¡ä¡©"
+    u"¡÷£Á£Â£Ã£Ä£Å£Æ£Ç£È£É£Ê£Ë£Ì£Í£Î£Ï£Ð£Ñ£Ò£Ó£Ô£Õ£Ö£×£Ø£Ù£Ú¡Î¡À¡Ï¡°¡²"
+    u"¡Æ£á£â£ã£ä£å£æ£ç£è£é£ê£ë£ì£í£î£ï£ð£ñ£ò£ó£ô£õ£ö£÷£ø£ù£ú¡Ð¡Ã¡Ñ")
+HALFWIDTH = (
+    u" !\"#$%&'()*+,--./0123456789:;<=>?" 
+    u"@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_" 
+    u"`abcdefghijklmnopqrstuvwxyz{|}")
+Z2HMAP = dict( (ord(zc), ord(hc)) for (zc,hc) in zip(FULLWIDTH, HALFWIDTH) )
+def zen2han(s):
+  return s.translate(Z2HMAP)
+
+
+##  Mora
+##
+class Mora(object):
+
+    def __init__(self, name):
+        self.name = name
+        return
+
+    def __repr__(self):
+        return '<%s: %s>' % (self.__class__.__name__, self.name)
+
+
+##  TransTable
+##
+class TransTable(object):
+
+    def __init__(self):
+        self._tree = {}
+        return
+    
+    def add(self, k, value):
+        t = self._tree
+        for c in k:
+            if c in t:
+                t = t[c]
+            else:
+                t[c] = {}
+                t = t[c]
+        assert None not in t, (k, t)
+        t[None] = value
+        return
+
+    def parse(self, s):
+        t = self._tree
+        r = []
+        i = 0
+        while i < len(s):
+            c = s[i]
+            if c in t:
+                t = t[c]
+                i += 1
+            elif t is self._tree:
+                i += 1
+            else:
+                if None in t:
+                    v = t[None]
+                    r.append(v)
+                    if v.name == 'qq':
+                        i -= 1
+                t = self._tree
+        if None in t:
+            r.append(t[None])
+        return r
+
+
+##  Mora Table
+##
+MORA = [  
+  ( '-', u'¡¼' ),
+  ( 'q', u'¥Ã', u'¤Ã' ),
+  ( 'qq', 
+    u'kk', u'ss', u'tt', u'cc',
+    u'nn', u'hh', u'mm', u'yy',
+    u'rr', u'ww', u'gg', u'zz',
+    u'dd', u'bb', u'pp', u'jj',
+    u'vv'),
+  
+  ( 'a', u'¥¢',   u'¤¢',   u'a' ),
+  ( 'i', u'¥¤',   u'¤¤',   u'i' ),
+  ( 'u', u'¥¦',   u'¤¦',   u'u' ),
+  ( 'e', u'¥¨',   u'¤¨',   u'e' ),
+  ( 'o', u'¥ª',   u'¤ª',   u'o' ),
+  
+  ( 'ka', u'¥«',   u'¤«',   u'ka' ),
+  ( 'ki', u'¥­',   u'¤­',   u'ki' ),
+  ( 'ku', u'¥¯',   u'¤¯',   u'ku' ),
+  ( 'ke', u'¥±',   u'¤±',   u'ke' ),
+  ( 'ko', u'¥³',   u'¤³',   u'ko' ),
+  
+  ( 'sa', u'¥µ',   u'¤µ',   u'sa' ),
+  ( 'si', u'¥·',   u'¤·',   u'si', u'shi' ),
+  ( 'su', u'¥¹',   u'¤¹',   u'su' ),
+  ( 'se', u'¥»',   u'¤»',   u'se' ),
+  ( 'so', u'¥½',   u'¤½',   u'so' ),
+  
+  ( 'ta', u'¥¿',   u'¤¿',   u'ta' ),
+  ( 'ti', u'¥Á',   u'¤Á',   u'ti', u'chi' ),
+  ( 'tu', u'¥Ä',   u'¤Ä',   u'tu', u'tsu' ),
+  ( 'te', u'¥Æ',   u'¤Æ',   u'te' ),
+  ( 'to', u'¥È',   u'¤È',   u'to' ),
+  
+  ( 'na', u'¥Ê',   u'¤Ê',   u'na' ),
+  ( 'ni', u'¥Ë',   u'¤Ë',   u'ni' ),
+  ( 'nu', u'¥Ì',   u'¤Ì',   u'nu' ),
+  ( 'ne', u'¥Í',   u'¤Í',   u'ne' ),
+  ( 'no', u'¥Î',   u'¤Î',   u'no' ),
+  
+  ( 'ha', u'¥Ï',   u'¤Ï',   u'ha' ),
+  ( 'hi', u'¥Ò',   u'¤Ò',   u'hi' ),
+  ( 'hu', u'¥Õ',   u'¤Õ',   u'hu', u'fu' ),
+  ( 'he', u'¥Ø',   u'¤Ø',   u'he' ),
+  ( 'ho', u'¥Û',   u'¤Û',   u'ho' ),
+  
+  ( 'ma', u'¥Þ',   u'¤Þ',   u'ma' ),
+  ( 'mi', u'¥ß',   u'¤ß',   u'mi' ),
+  ( 'mu', u'¥à',   u'¤à',   u'mu' ),
+  ( 'me', u'¥á',   u'¤á',   u'me' ),
+  ( 'mo', u'¥â',   u'¤â',   u'mo' ),
+  
+  ( 'ya', u'¥ä',   u'¤ä',   u'ya' ),
+  ( 'yi', u'¥ð',   u'¤ð',   u'yi' ),
+  ( 'yu', u'¥æ',   u'¤æ',   u'yu' ),
+  ( 'ye', u'¥ñ',   u'¤ñ',   u'ye' ),
+  ( 'yo', u'¥è',   u'¤è',   u'yo' ),
+  
+  ( 'ra', u'¥é',   u'¤é',   u'ra' ),
+  ( 'ri', u'¥ê',   u'¤ê',   u'ri' ),
+  ( 'ru', u'¥ë',   u'¤ë',   u'ru' ),
+  ( 're', u'¥ì',   u'¤ì',   u're' ),
+  ( 'ro', u'¥í',   u'¤í',   u'ro' ),
+  
+  ( 'wa', u'¥ï',   u'¤ï',   u'wa' ),
+  ( 'wo', u'¥ò',   u'¤ò',   u'wo' ),
+  ( 'n',  u'¥ó',   u'¤ó',   u'n' ),
+
+  # voiced (Dakuon)
+  ( 'ga', u'¥¬',   u'¤¬',   u'ga' ),
+  ( 'gi', u'¥®',   u'¤®',   u'gi' ),
+  ( 'gu', u'¥°',   u'¤°',   u'gu' ),
+  ( 'ge', u'¥²',   u'¤²',   u'ge' ),
+  ( 'go', u'¥´',   u'¤´',   u'go' ),
+                  
+  ( 'za', u'¥¶',   u'¤¶',   u'za' ),
+  ( 'zi', u'¥¸',   u'¤¸', u'¤Â', u'zi', u'di', u'ji' ),
+  ( 'zu', u'¥º',   u'¤º', u'¤Å', u'zu', u'du' ),
+  ( 'ze', u'¥¼',   u'¤¼',   u'ze' ),
+  ( 'zo', u'¥¾',   u'¤¾',   u'zo' ),
+                  
+  ( 'da', u'¥À',   u'¤À',   u'da' ),
+  ( 'de', u'¥Ç',   u'¤Ç',   u'de' ),
+  ( 'do', u'¥É',   u'¤É',   u'do' ),
+  
+  ( 'ba', u'¥Ð',   u'¤Ð',   u'ba' ),
+  ( 'bi', u'¥Ó',   u'¤Ó',   u'bi' ),
+  ( 'bu', u'¥Ö',   u'¤Ö',   u'bu' ),
+  ( 'be', u'¥Ù',   u'¤Ù',   u'be' ),
+  ( 'bo', u'¥Ü',   u'¤Ü',   u'bo' ),
+  
+  ( 'fa', u'¥Õ¥¡', u'¤Õ¤¡', u'fa' ),
+  ( 'fi', u'¥Õ¥£', u'¤Õ¤£', u'fi' ),
+  ( 'fe', u'¥Õ¥§', u'¤Õ¤§', u'fe' ),
+  ( 'fo', u'¥Õ¥©', u'¤Õ¤©', u'fo' ),
+  
+  ( 'va', u'¥ô¥¡', u'¤¦¡«¤¡', u'va' ),
+  ( 'vi', u'¥ô¥£', u'¤¦¡«¤£', u'vi' ),
+  ( 'vu', u'¥ô',   u'¤¦¡«',   u'vu' ),
+  ( 've', u'¥ô¥§', u'¤¦¡«¤§', u've' ),
+  ( 'vo', u'¥ô¥©', u'¤¦¡«¤©', u'vo' ),
+  
+  # p- sound (Handakuon)
+  ( 'pa', u'¥Ñ',   u'¤Ñ',   u'pa' ),
+  ( 'pi', u'¥Ô',   u'¤Ô',   u'pi' ),
+  ( 'pu', u'¥×',   u'¤×',   u'pu' ),
+  ( 'pe', u'¥Ú',   u'¤Ú',   u'pe' ),
+  ( 'po', u'¥Ý',   u'¤Ý',   u'po' ),
+
+  # double consonants (Youon)
+  ( 'Ka', u'¥­¥ã', u'¤­¤ã', u'kya' ),
+  ( 'Ku', u'¥­¥å', u'¤­¤å', u'kyu' ),
+  ( 'Ke', u'¥­¥§', u'¤­¤§', u'kye' ),
+  ( 'Ko', u'¥­¥ç', u'¤­¤ç', u'kyo' ),
+
+  ( 'Sa', u'¥·¥ã', u'¤·¤ã', u'sha', u'sya' ),
+  ( 'Su', u'¥·¥å', u'¤·¤å', u'shu', u'syu' ),
+  ( 'Se', u'¥·¥§', u'¤·¤§', u'she', u'sye' ),
+  ( 'So', u'¥·¥ç', u'¤·¤ç', u'sho', u'syo' ),
+  
+  ( 'Ca', u'¥Á¥ã', u'¤Á¤ã', u'tya', u'cha' ),
+  ( 'Cu', u'¥Á¥å', u'¤Á¤å', u'tyu', u'chu' ),
+  ( 'Ce', u'¥Á¥§', u'¤Á¤§', u'tye', u'che' ),
+  ( 'Co', u'¥Á¥ç', u'¤Á¤ç', u'tyo', u'cho' ),
+  
+  ( 'Na', u'¥Ë¥ã', u'¤Ë¤ã', u'nya' ),
+  ( 'Nu', u'¥Ë¥å', u'¤Ë¤å', u'nyu' ),
+  ( 'Ni', u'¥Ë¥§', u'¤Ë¤§', u'nye' ),
+  ( 'No', u'¥Ë¥ç', u'¤Ë¤ç', u'nyo' ),
+  
+  ( 'Ha', u'¥Ò¥ã', u'¤Ò¤ã', u'hya' ),
+  ( 'Hu', u'¥Ò¥å', u'¤Ò¤å', u'hyu' ),
+  ( 'He', u'¥Ò¥§', u'¤Ò¤§', u'hye' ),
+  ( 'Ho', u'¥Ò¥ç', u'¤Ò¤ç', u'hyo' ),
+  
+  ( 'Ma', u'¥ß¥ã', u'¤ß¤ã', u'mya' ),
+  ( 'Mu', u'¥ß¥å', u'¤ß¤å', u'myu' ),
+  ( 'Me', u'¥ß¥§', u'¤ß¤§', u'mye' ),
+  ( 'Mo', u'¥ß¥ç', u'¤ß¤ç', u'myo' ),
+  
+  ( 'Ra', u'¥ê¥ã', u'¤ê¤ã', u'rya', ),
+  ( 'Ru', u'¥ê¥å', u'¤ê¤å', u'ryu', ),
+  ( 'Re', u'¥ê¥§', u'¤ê¤§', u'rye', ),
+  ( 'Ro', u'¥ê¥ç', u'¤ê¤ç', u'ryo', ),
+  
+  # double consonants + voiced
+  ( 'Ga', u'¥®¥ã', u'¤®¤ã', u'gya' ),
+  ( 'Gu', u'¥®¥å', u'¤®¤å', u'gyu' ),
+  ( 'Ge', u'¥®¥§', u'¤®¤§', u'gye' ),
+  ( 'Go', u'¥®¥ç', u'¤®¤ç', u'gyo' ),
+  
+  ( 'Ja', u'¥¸¥ã', u'¥Â¥ã', u'¤¸¤ã', u'¤Â¤ã', u'ja', u'zha', u'zya', u'dya' ),
+  ( 'Ju', u'¥¸¥å', u'¥Â¥å', u'¤¸¤å', u'¤Â¤å', u'ju', u'zhu', u'zyu', u'dyu' ),
+  ( 'Je', u'¥¸¥§', u'¥Â¥§', u'¤¸¤§', u'¤Â¤§', u'je', u'zhe', u'zye', u'dye' ),
+  ( 'Jo', u'¥¸¥ç', u'¥Â¥ç', u'¤¸¤ç', u'¤Â¤ç', u'jo', u'zho', u'zyo', u'dyo' ),
+  
+  ( 'Ba', u'¥Ó¥ã', u'¤Ó¤ã', u'bya' ),
+  ( 'Bu', u'¥Ó¥å', u'¤Ó¤å', u'byu' ),
+  ( 'Be', u'¥Ó¥§', u'¤Ó¤§', u'bye' ),
+  ( 'Bo', u'¥Ó¥ç', u'¤Ó¤ç', u'byo' ),
+  
+  # double consonants + p-sound
+  ( 'Pa', u'¥Ô¥ã', u'¤Ô¤ã', u'pya' ),
+  ( 'Pu', u'¥Ô¥å', u'¤Ô¤å', u'pyu' ),
+  ( 'Pe', u'¥Ô¥§', u'¤Ô¤§', u'pye' ),
+  ( 'Po', u'¥Ô¥ç', u'¤Ô¤ç', u'pyo' ),
+
+  ]
+
+MoraTable = TransTable()
+for x in MORA:
+    mora = Mora(x[0])
+    for k in x[1:]:
+        MoraTable.add(k, mora)
+
+# main
+def main(argv):
+    import getopt, fileinput
+    def usage():
+        print 'usage: %s [-d] [-c codec] [file ...]' % argv[0]
+        return 100
+    try:
+        (opts, args) = getopt.getopt(argv[1:], 'dc:D:')
+    except getopt.GetoptError:
+        return usage()
+    debug = 0
+    codec = 'utf-8'
+    for (k, v) in opts:
+        if k == '-d': debug += 1
+        elif k == '-c': codec = v
+    for line in fileinput.input(args):
+        line = line.decode(codec, 'ignore')
+        print MoraTable.parse(line)
+    return 0
+
+if __name__ == '__main__': sys.exit(main(sys.argv))
