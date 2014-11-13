@@ -13,10 +13,13 @@ def hira2kata(s):
 def decode_yomi(s):
     return u''.join( unichr(0x3000+ord(c)) for c in s )
 
-POST = { ord(u'は'):u'わ', ord(u'へ'):u'え' }
+POSTMAP = { u'は':u'わ', u'へ':u'え' }
+POST = re.compile(ur'([はわ])([^ぁ-ん]*)$')
 EUPH = re.compile(ur'([オコゴソゾトドノホボポモヨロョォ])ウ')
 def reg_yomi(s):
-    s = s[:-1]+(s[-1].translate(POST))
+    def f(m):
+       return POSTMAP[m.group(1)]+m.group(2)
+    s = POST.sub(f, s)
     s = hira2kata(s)
     s = EUPH.sub(ur'\1ー', s)
     return s
@@ -246,6 +249,72 @@ class Yomer(object):
         for i in xrange(ord(c[0]),ord(c[1])+1):
             KIND[unichr(i)] = k
             
+    ALPH = {
+        ' ': u'スペース',
+        '.': u'ピリオド',
+        ',': u'カンマ',
+        '!': u'ビックリ',
+        '?': u'ハテナ',
+        '+': u'プラス',
+        '-': u'マイナス',
+        '*': u'カケル',
+        '/': u'ワル',
+        '(': u'カッコ',
+        ')': u'コッカ',
+        '@': u'アットマーク',
+        '~': u'チルダ',
+        '#': u'シャープ',
+        '$': u'ドル',
+        '%': u'パーセント',
+        "'": u'アポストロフィ',
+        '&': u'アンド',
+        '_': u'アンダースコア',
+        '=': u'イコール',
+        '<': u'ショーナリ',
+        '>': u'ダイナリ',
+        ':': u'コロン',
+        ';': u'セミコロン',
+        '[': u'ヒラキカギ',
+        ']': u'トジカギ',
+
+        '0': u'ゼロ',
+        '1': u'イチ',
+        '2': u'ニ',
+        '3': u'サン',
+        '4': u'ヨン',
+        '5': u'ゴ',
+        '6': u'ロク',
+        '7': u'ナナ',
+        '8': u'ハチ',
+        '9': u'キュー',
+        
+        'a': u'エー',
+        'b': u'ビー',
+        'c': u'シー',
+        'd': u'デー',
+        'e': u'イー',
+        'f': u'エフ',
+        'g': u'ジー',
+        'h': u'エイチ',
+        'i': u'アイ',
+        'j': u'ジエ',
+        'k': u'ケイ',
+        'l': u'エル',
+        'm': u'エム',
+        'o': u'オー',
+        'p': u'ピー',
+        'q': u'キュー',
+        'r': u'アール',
+        's': u'エス',
+        't': u'テー',
+        'u': u'ユー',
+        'v': u'ブイ',
+        'w': u'ダブル',
+        'x': u'エックス',
+        'y': u'ワイ',
+        'z': u'ゼット',
+        }
+    
     def __init__(self, tcdb, codec='euc-jp'):
         self._tcdb = tcdb
         self.codec = codec
@@ -276,7 +345,10 @@ class Yomer(object):
         a = []
         for (c,y) in self._chunks:
             if y is None:
-                x += c
+                if c.lower() in self.ALPH:
+                    x += self.ALPH[c.lower()]
+                else:
+                    x += c
             else:
                 if x:
                     a.append((x, reg_yomi(x)))
@@ -360,6 +432,7 @@ def main(argv):
     for line in fileinput.input(args):
         line = line.decode(codec, 'ignore')
         for s in wakacher.get_chunks(line):
+            print s
             for y in yomer.get_yomi(s):
                 t = u''.join( v or k for (k,v) in y)
                 print t
