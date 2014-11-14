@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- coding: euc-jp -*-
+# -*- coding: utf-8 -*-
 import sys
 import array
 import struct
